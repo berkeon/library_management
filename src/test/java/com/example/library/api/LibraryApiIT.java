@@ -267,19 +267,58 @@ class LibraryApiIT extends AbstractIntegrationTest {
         @Test
         @DisplayName("should search books by keyword via GET /api/books/search?keyword=...")
         void shouldSearchBooks() {
-            // TODO: Create several books, search by keyword, verify results
-            fail("Not implemented yet");
+            // Arrange: create 2 books matching keyword and 1 that does not
+            createTestBook("978-1", "Clean Code", "Robert C. Martin");
+            createTestBook("978-2", "Clean Architecture", "Robert C. Martin");
+            createTestBook("978-3", "Refactoring", "Martin Fowler");
+
+            // Act: search with keyword "clean" (case-insensitive handled by service)
+            ResponseEntity<Book[]> response = restTemplate.getForEntity(
+                    baseUrl + "/books/search?keyword=clean", Book[].class);
+
+            // Assert: only the two "Clean *" books are returned
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).hasSize(2);
+            assertThat(response.getBody())
+                    .extracting(Book::getTitle)
+                    .containsExactlyInAnyOrder("Clean Code", "Clean Architecture");
         }
 
         @Test
         @DisplayName("should get active borrows for a member")
         void shouldGetActiveBorrows() {
-            // TODO:
-            // 1. Create a member and 2 books
-            // 2. Borrow both books
-            // 3. Return one of them
-            // 4. GET /api/borrows/member/{id}/active — should return only 1
-            fail("Not implemented yet");
+            // Arrange: one member, two books
+            Member member = createTestMember("Alice", "alice@test.com", MembershipType.STANDARD);
+            Book book1 = createTestBook("978-1", "Book One", "Author A");
+            Book book2 = createTestBook("978-2", "Book Two", "Author B");
+
+            // Borrow both books
+            BorrowRequest request1 = new BorrowRequest(book1.getId(), member.getId());
+            ResponseEntity<Map> borrow1Response = restTemplate.postForEntity(
+                    baseUrl + "/borrows", request1, Map.class);
+            assertThat(borrow1Response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            Number borrow1Id = (Number) borrow1Response.getBody().get("id");
+
+            BorrowRequest request2 = new BorrowRequest(book2.getId(), member.getId());
+            ResponseEntity<Map> borrow2Response = restTemplate.postForEntity(
+                    baseUrl + "/borrows", request2, Map.class);
+            assertThat(borrow2Response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+            // Return the first book
+            ResponseEntity<Map> returnResponse = restTemplate.postForEntity(
+                    baseUrl + "/borrows/" + borrow1Id.longValue() + "/return",
+                    null, Map.class);
+            assertThat(returnResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+            // Act: get active borrows for this member
+            ResponseEntity<Map[]> activeResponse = restTemplate.getForEntity(
+                    baseUrl + "/borrows/member/" + member.getId() + "/active", Map[].class);
+
+            // Assert: only 1 active borrow remains (book2)
+            assertThat(activeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(activeResponse.getBody()).hasSize(1);
+            assertThat(activeResponse.getBody()[0]).containsEntry("bookTitle", "Book Two");
+            assertThat(activeResponse.getBody()[0]).containsEntry("status", "BORROWED");
         }
     }
 }
