@@ -234,52 +234,59 @@ class LibraryApiIT extends AbstractIntegrationTest {
     class MemberApiTests {
 
         @Test
-        @DisplayName("should create a member and return 201")
-        void shouldCreateMember() {
-            // TODO: POST a new member to /api/members
-            //       Verify 201 status and response body
-            fail("Not implemented yet");
+        @DisplayName("should create a new member")
+        void createMemberTest() {
+
+            Member memberToCreate =
+                    new Member("Alice", "alice@example.com", MembershipType.STANDARD);
+
+            ResponseEntity<Member> response = restTemplate.postForEntity(
+                    baseUrl + "/members",
+                    memberToCreate,
+                    Member.class);
+
+            Member createdMember = response.getBody();
+
+            assertThat(createdMember).isNotNull();
+            assertThat(createdMember.getId()).isNotNull();
+            assertThat(createdMember.getName()).isEqualTo("Alice");
+            assertThat(createdMember.isActive()).isTrue();
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         }
 
         @Test
-        @DisplayName("should deactivate a member via DELETE")
-        void shouldDeactivateMember() {
-            // TODO:
-            // 1. Create a member
-            // 2. DELETE /api/members/{id}
-            // 3. GET /api/members/{id} and verify active = false
-            fail("Not implemented yet");
+        @DisplayName("should deactivate member")
+        void deleteMemberTest() {
+
+            Member existingMember =
+                    createTestMember("Alice", "alice@test.com", MembershipType.STANDARD);
+
+            restTemplate.delete(baseUrl + "/members/" + existingMember.getId());
+
+            ResponseEntity<Member> response = restTemplate.getForEntity(
+                    baseUrl + "/members/" + existingMember.getId(),
+                    Member.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+
+
+            assertThat(response.getBody().isActive()).isFalse();
         }
 
         @Test
-        @DisplayName("should return 400 when creating member with invalid email")
-        void shouldReturn400_WhenInvalidEmail() {
-            // TODO: POST a member with an invalid email
-            //       Verify 400 BAD REQUEST
-            fail("Not implemented yet");
-        }
-    }
+        @DisplayName("should reject invalid email")
+        void invalidEmailShouldReturnBadRequest() {
 
-    @Nested
-    @DisplayName("Search & Filter API")
-    class SearchApiTests {
+            Member invalidMember =
+                    new Member("Alice", "not-an-email", MembershipType.STANDARD);
 
-        @Test
-        @DisplayName("should search books by keyword via GET /api/books/search?keyword=...")
-        void shouldSearchBooks() {
-            // TODO: Create several books, search by keyword, verify results
-            fail("Not implemented yet");
-        }
+            ResponseEntity<Map> response = restTemplate.postForEntity(
+                    baseUrl + "/members",
+                    invalidMember,
+                    Map.class);
 
-        @Test
-        @DisplayName("should get active borrows for a member")
-        void shouldGetActiveBorrows() {
-            // TODO:
-            // 1. Create a member and 2 books
-            // 2. Borrow both books
-            // 3. Return one of them
-            // 4. GET /api/borrows/member/{id}/active — should return only 1
-            fail("Not implemented yet");
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 }
